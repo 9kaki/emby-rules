@@ -1,0 +1,3 @@
+DOMAIN-SUFFIX,covh.eu.org
+DOMAIN-SUFFIX,zzm.li
+DOMAIN-SUFFIX,meowfly.de
