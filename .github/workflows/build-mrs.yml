@@ -1,0 +1,80 @@
+name: Build MRS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "rules/*.txt"
+      - ".github/workflows/build-mrs.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get latest Mihomo version
+        id: mihomo
+        shell: bash
+        run: |
+          VERSION=$(curl -fsSL https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | jq -r '.tag_name')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Mihomo version: $VERSION"
+
+      - name: Download Mihomo
+        shell: bash
+        run: |
+          VERSION="${{ steps.mihomo.outputs.version }}"
+
+          wget -q \
+            "https://github.com/MetaCubeX/mihomo/releases/download/${VERSION}/mihomo-linux-amd64-${VERSION}.gz" \
+            -O mihomo.gz
+
+          gunzip mihomo.gz
+          chmod +x mihomo
+
+          ./mihomo -v
+
+      - name: Convert rules to MRS
+        shell: bash
+        run: |
+          mkdir -p mrs
+
+          for file in rules/*.txt; do
+            [ -e "$file" ] || continue
+
+            name=$(basename "$file" .txt)
+
+            echo "======================================"
+            echo "Converting: $file"
+            echo "Output:     mrs/$name.mrs"
+            echo "======================================"
+
+            ./mihomo convert-ruleset classical text \
+              "$file" \
+              "mrs/$name.mrs"
+          done
+
+      - name: Commit MRS files
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add mrs/
+
+          if git diff --cached --quiet; then
+            echo "No MRS changes."
+            exit 0
+          fi
+
+          git commit -m "Auto build MRS rules"
+          git push
