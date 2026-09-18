@@ -1,10 +1,8 @@
 name: Build MRS
 
 on:
-  # 手动运行
   workflow_dispatch:
 
-  # 修改 rules/*.txt 后自动运行
   push:
     branches:
       - main
@@ -12,7 +10,6 @@ on:
       - "rules/*.txt"
       - ".github/workflows/build-mrs.yml"
 
-  # 每天北京时间 02:00 自动运行
   schedule:
     - cron: "0 18 * * *"
 
@@ -24,16 +21,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-      # =========================
-      # 1. 获取仓库
-      # =========================
       - name: Checkout
         uses: actions/checkout@v4
 
-      # =========================
-      # 2. 下载最新 Mihomo
-      # =========================
       - name: Install Mihomo
         shell: bash
         run: |
@@ -57,14 +47,6 @@ jobs:
 
           with urllib.request.urlopen(req) as response:
               data = json.load(response)
-
-          # 选择：
-          # mihomo-linux-amd64-vX.X.X.gz
-          #
-          # 排除：
-          # compatible
-          # v1/v2/v3 指令集版本
-          # go120/go122 等特殊版本
 
           pattern = re.compile(
               r"^mihomo-linux-amd64-v\d+\.\d+\.\d+\.gz$"
@@ -101,16 +83,6 @@ jobs:
           echo "Mihomo 版本："
           mihomo -v
 
-      # =========================
-      # 3. 创建 MRS 文件夹
-      # =========================
-      - name: Prepare directories
-        run: |
-          mkdir -p mrs
-
-      # =========================
-      # 4. TXT → MRS
-      # =========================
       - name: Convert TXT to MRS
         shell: bash
         run: |
@@ -118,7 +90,6 @@ jobs:
 
           for file in rules/*.txt; do
 
-            # 如果没有 TXT 文件，跳过
             [ -e "$file" ] || continue
 
             name=$(basename "$file" .txt)
@@ -126,40 +97,32 @@ jobs:
             echo ""
             echo "========================================"
             echo "正在转换：$file"
-            echo "输出文件：mrs/$name.mrs"
+            echo "输出文件：rules/$name.mrs"
             echo "========================================"
 
             mihomo convert-ruleset \
               domain \
               text \
               "$file" \
-              "mrs/$name.mrs"
+              "rules/$name.mrs"
 
-            echo "✓ 转换完成：mrs/$name.mrs"
+            echo "✓ 转换完成：rules/$name.mrs"
 
           done
 
-      # =========================
-      # 5. 查看生成结果
-      # =========================
       - name: Check generated files
         run: |
-          echo "生成的 MRS："
-          ls -lh mrs/
+          echo "rules 文件夹中的文件："
+          ls -lh rules/
 
-      # =========================
-      # 6. 提交 MRS
-      # =========================
       - name: Commit and push
         shell: bash
         run: |
-
           git config user.name "github-actions[bot]"
-
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add mrs/
+          git add rules/*.mrs
 
           if git diff --cached --quiet; then
             echo "没有新的 MRS 变化"
