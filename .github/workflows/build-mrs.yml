@@ -1,6 +1,10 @@
 name: Build MRS
 
 on:
+  # 手动运行
+  workflow_dispatch:
+
+  # 修改 rules/*.txt 后自动运行
   push:
     branches:
       - main
@@ -8,7 +12,9 @@ on:
       - "rules/*.txt"
       - ".github/workflows/build-mrs.yml"
 
-  workflow_dispatch:
+  # 每天北京时间 02:00 自动运行
+  schedule:
+    - cron: "0 18 * * *"
 
 permissions:
   contents: write
@@ -18,63 +24,148 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      # =========================
+      # 1. 获取仓库
+      # =========================
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get latest Mihomo version
-        id: mihomo
+      # =========================
+      # 2. 下载最新 Mihomo
+      # =========================
+      - name: Install Mihomo
         shell: bash
         run: |
-          VERSION=$(curl -fsSL https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | jq -r '.tag_name')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Mihomo version: $VERSION"
+          set -e
 
-      - name: Download Mihomo
-        shell: bash
-        run: |
-          VERSION="${{ steps.mihomo.outputs.version }}"
+          echo "正在获取最新 Mihomo 版本..."
 
-          wget -q \
-            "https://github.com/MetaCubeX/mihomo/releases/download/${VERSION}/mihomo-linux-amd64-${VERSION}.gz" \
-            -O mihomo.gz
+          MIHOMO_URL=$(python3 - <<'PY'
+          import json
+          import re
+          import urllib.request
+
+          api = "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest"
+
+          req = urllib.request.Request(
+              api,
+              headers={
+                  "User-Agent": "GitHub-Actions"
+              }
+          )
+
+          with urllib.request.urlopen(req) as response:
+              data = json.load(response)
+
+          # 选择：
+          # mihomo-linux-amd64-vX.X.X.gz
+          #
+          # 排除：
+          # compatible
+          # v1/v2/v3 指令集版本
+          # go120/go122 等特殊版本
+
+          pattern = re.compile(
+              r"^mihomo-linux-amd64-v\d+\.\d+\.\d+\.gz$"
+          )
+
+          candidates = []
+
+          for asset in data["assets"]:
+              name = asset["name"]
+
+              if pattern.match(name):
+                  candidates.append(asset["browser_download_url"])
+
+          if not candidates:
+              raise SystemExit(
+                  "找不到合适的 Mihomo Linux amd64 版本"
+              )
+
+          print(candidates[0])
+          PY
+          )
+
+          echo "下载地址："
+          echo "$MIHOMO_URL"
+
+          curl -fL "$MIHOMO_URL" -o mihomo.gz
 
           gunzip mihomo.gz
+
           chmod +x mihomo
 
-          ./mihomo -v
+          sudo mv mihomo /usr/local/bin/mihomo
 
-      - name: Convert rules to MRS
-        shell: bash
+          echo "Mihomo 版本："
+          mihomo -v
+
+      # =========================
+      # 3. 创建 MRS 文件夹
+      # =========================
+      - name: Prepare directories
         run: |
           mkdir -p mrs
 
+      # =========================
+      # 4. TXT → MRS
+      # =========================
+      - name: Convert TXT to MRS
+        shell: bash
+        run: |
+          set -e
+
           for file in rules/*.txt; do
+
+            # 如果没有 TXT 文件，跳过
             [ -e "$file" ] || continue
 
             name=$(basename "$file" .txt)
 
-            echo "======================================"
-            echo "Converting: $file"
-            echo "Output:     mrs/$name.mrs"
-            echo "======================================"
+            echo ""
+            echo "========================================"
+            echo "正在转换：$file"
+            echo "输出文件：mrs/$name.mrs"
+            echo "========================================"
 
-            ./mihomo convert-ruleset classical text \
+            mihomo convert-ruleset \
+              domain \
+              text \
               "$file" \
               "mrs/$name.mrs"
+
+            echo "✓ 转换完成：mrs/$name.mrs"
+
           done
 
-      - name: Commit MRS files
+      # =========================
+      # 5. 查看生成结果
+      # =========================
+      - name: Check generated files
+        run: |
+          echo "生成的 MRS："
+          ls -lh mrs/
+
+      # =========================
+      # 6. 提交 MRS
+      # =========================
+      - name: Commit and push
         shell: bash
         run: |
+
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add mrs/
 
           if git diff --cached --quiet; then
-            echo "No MRS changes."
+            echo "没有新的 MRS 变化"
             exit 0
           fi
 
-          git commit -m "Auto build MRS rules"
+          git commit -m "build: update MRS rules"
+
           git push
