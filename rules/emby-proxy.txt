@@ -2,5 +2,5 @@
 +.zzm.li
 +.meowfly.de
 +.okemby.org
-emby.7s.l.cd
-emby.teawaya.com
++.7s.l.cd
++.teawaya.com
