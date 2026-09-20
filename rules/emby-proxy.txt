@@ -7,5 +7,7 @@
 +.ftp2.eu.org
 +.7658888.xyz
 +.wybcs.work
++.dijia.de
++.haosao.de
 a.wedg.top
 tt.wedg.top
