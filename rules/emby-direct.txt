@@ -4,4 +4,6 @@
 +.yusen.us.ci
 +.yusen.cyou
 +.yusen.cc.cd
++.dijia.de
++.haosao.de
 cf.wedg.top
