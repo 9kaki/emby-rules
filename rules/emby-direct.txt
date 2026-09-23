@@ -6,4 +6,6 @@
 +.yusen.cc.cd
 +.dijia.de
 +.haosao.de
++.tbag.dpdns.org
++.tbag.qzz.io
 cf.wedg.top
