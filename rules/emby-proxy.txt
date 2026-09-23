@@ -7,5 +7,7 @@
 +.ftp2.eu.org
 +.7658888.xyz
 +.wybcs.work
++.tbag.dpdns.org
++.tbag.qzz.io
 a.wedg.top
 tt.wedg.top
