@@ -10,6 +10,5 @@
 +.tbag.dpdns.org
 +.tbag.qzz.io
 cf.sfcj.org
-media.emby.pro
 a.wedg.top
 tt.wedg.top
